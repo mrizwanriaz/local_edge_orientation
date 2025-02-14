@@ -16,10 +16,10 @@ source("CausalityFunctions.R")
 dummy_samples <- c("samp1","samp2","samp3","samp4","samp5","samp6","samp7","samp8","samp9","samp10")
 
 #Read in the SNPs data file
-datSNP.shoot <- readRDS("SNPs.RDS")[c(1:10),]
+datSNP <- readRDS("SNPs.RDS")[c(1:10),]
 
 # Display the column names after the transformations
-colnames(datSNP.shoot)
+colnames(datSNP)
 
 # Read module eigengenes (from WGCNA output)
 MEs <- readRDS("MEs.RDS")
@@ -30,8 +30,8 @@ datTraits <- readRDS("traits.RDS")[c(1:10),]
 
 # Calculate number of samples, SNPs, traits, and modules
 SampNum <- length(dummy_samples)  # number of samples
-SNP_Num <- ncol(datSNP.shoot)  # number of SNPs (columns in SNP data)
-Traits_Num <- ncol(datTraits.subset)  # number of traits (columns in trait data)
+SNP_Num <- ncol(datSNP)  # number of SNPs (columns in SNP data)
+Traits_Num <- ncol(datTraits)  # number of traits (columns in trait data)
 MEs_Num <- ncol(MEs)  # number of modules (columns in MEs data)
 
 
@@ -139,8 +139,8 @@ output_df <- data.frame(SNP = character(0),
 
 # Loop through SNPs, MEs, and Traits
 for (i in 1:SNP_Num) {
-  SNP <- as.numeric(datSNP.shoot[, i])
-  SNPName <- colnames(datSNP.shoot)[i]
+  SNP <- as.numeric(datSNP[, i])
+  SNPName <- colnames(datSNP)[i]
   
   # Skip SNPs with no variation
   if (all(SNP == 0) | all(SNP == 1)) {
@@ -152,8 +152,8 @@ for (i in 1:SNP_Num) {
     MEName <- colnames(MEs)[j]
     
     for (k in 1:Traits_Num) {
-      Trait <- datTraits.subset[, k]
-      TraitName <- colnames(datTraits.subset)[k]
+      Trait <- datTraits[, k]
+      TraitName <- colnames(datTraits)[k]
       
       # Skip traits with no variation
       if (all(Trait == 0)) {
