@@ -1,0 +1,642 @@
+#returns a dataframe fitting the 3 variable models SNP -> gene -> trait
+#for each of the supplied snpcols, genecols, and traitcols
+#
+if(exists("single.marker.analysis") ) rm(single.marker.analysis);
+single.marker.analysis=function(datCombined,snpcols,genecols,traitcols,leo.i.th=1, leo.o.th=5, leo.nb.th=.3,pm=neo.get.param(),use.ranks=FALSE,build.multi.marker.to.gene.model=FALSE, impute.na=TRUE)
+{
+ # should we convert the gene and trait cols to ranks first?
+ if (use.ranks) {
+    for (g in genecols) {
+         datCombined[,g]=rank(datCombined[,g])
+    }
+    for (g in traitcols) {
+         datCombined[,g]=rank(datCombined[,g])
+    }
+ }
+
+ cn=colnames(datCombined)
+
+ tsize=length(traitcols)*length(snpcols)*length(genecols)
+
+ M.col=1
+ A.col=2
+ B.col=3
+
+ mlogp.M.AtoB=rep(NA,tsize)
+ mlogp.M.BtoA=rep(NA,tsize)
+ mlogp.M.conf=rep(NA,tsize)
+ mlogp.M.AcollideB=rep(NA,tsize)
+ mlogp.M.BcollideA=rep(NA,tsize)
+
+ RMSEA.AtoB=rep(NA,tsize)
+ RMSEA.BtoA=rep(NA,tsize)
+ RMSEA.conf=rep(NA,tsize)
+ RMSEA.AcollideB=rep(NA,tsize)
+ RMSEA.BcollideA=rep(NA,tsize)
+
+
+ #mlogp.M.AhiddenB=rep(NA,tsize)
+
+ leo.i = rep(NA,tsize)
+ leo.o = rep(NA,tsize)
+ leo.ab.over.ba = rep(NA,tsize)
+ good.o=rep(NA,tsize)
+ good.i=rep(NA,tsize)
+ good.nb=rep(NA,tsize)
+
+   BAc.vs.NextBest = rep(NA,tsize)
+
+   PathAB = rep(NA,tsize)
+   PathBA = rep(NA,tsize)
+   SEPathAB = rep(NA,tsize)
+   SEPathBA = rep(NA,tsize)
+   ZPathAB = rep(NA,tsize)
+   ZPathBA = rep(NA,tsize)
+   PPathAB = rep(NA,tsize)
+   PPathBA = rep(NA,tsize)
+   BLV.AtoB = rep(NA,tsize)
+   BLV.BtoA = rep(NA,tsize)
+   leo.nb.AtoB = rep(NA,tsize)
+   leo.nb.BtoA = rep(NA,tsize)
+   AcollideB.vs.NextBest = rep(NA,tsize)
+
+
+ rn= rep(NA,tsize)
+ rn1= rep(NA,tsize)
+ rn2= rep(NA,tsize)
+ rn3= rep(NA,tsize)
+ rn4= rep(NA,tsize)
+ rn5= rep(NA,tsize)
+
+ ii=0; # store at this row
+ for (i in 1:length(traitcols) ) {
+  t=traitcols[i];
+  for (j in 1:length(snpcols)) {
+    s = snpcols[j];
+     for (k in 1:length(genecols)) {
+       g = genecols[k];
+
+  ii=ii+1
+  xuse=datCombined[,c(s,g,t)]
+  xuse.imp = xuse
+  if (impute.na) { xuse.imp = impute(xuse,what="median") }
+  z=compare.local.sems(pm=pm,M.col,A.col,B.col,xuse.imp)
+
+  mlogp.M.AtoB[ii] = signif( z$mlogp.M.AtoB,3)
+  mlogp.M.BtoA[ii] = signif( z$mlogp.M.BtoA,3)
+  mlogp.M.conf[ii] = signif( z$mlogp.M.conf,3)
+  mlogp.M.AcollideB[ii] = signif( z$mlogp.M.AcollideB,3)
+  mlogp.M.BcollideA[ii] = signif( z$mlogp.M.BcollideA,3)
+#  mlogp.M.AhiddenB[ii] = signif( z$mlogp.M.AhiddenB,3)
+  rn[ii]=paste(sep="","M:",cn[s]," to A:",cn[g]," to B:",cn[t])
+
+  rn1[ii]=paste(sep="","M:",cn[s])
+  rn2[ii]="to"
+  rn3[ii]=paste(sep="","A:",cn[g])
+  rn4[ii]="to"
+  rn5[ii]=paste(sep="","B:",cn[t])
+
+  s1.i=z$mlogp.M.conf - z$mlogp.M.AtoB;
+  s2.o=z$mlogp.M.AcollideB - z$mlogp.M.AtoB;
+  leo.i[ii] = signif((s1.i),3)
+  leo.o[ii] = signif((s2.o),3)
+  leo.ab.over.ba[ii] = signif( z$mlogp.M.BtoA - z$mlogp.M.AtoB ,3)
+
+
+   ##
+   ## the new statistics ZPathAB, ZPathBA, z$LEO.NB.BtoA,
+   ## BLV, PearsonCor, PearsonCorP
+   ##
+
+   PathAB[ii] = signif(z$PathAB,3)
+   PathBA[ii] = signif(z$PathBA,3)
+
+   SEPathAB[ii] = signif(z$SEPathAB,3)
+   SEPathBA[ii] = signif(z$SEPathBA,3)
+
+   ZPathAB[ii] = signif(z$ZPathAB,3)
+   ZPathBA[ii] = signif(z$ZPathBA,3)
+
+   PPathAB[ii] = signif(z$PPathAB,3)
+   PPathBA[ii] = signif(z$PPathBA,3)
+
+   BLV.AtoB[ii] = signif(z$BLV.AtoB,3)
+   BLV.BtoA[ii] = signif(z$BLV.BtoA,3)
+
+   RMSEA.AtoB[ii]=signif(z$M.AtoB$RMSEA[1],3)
+   RMSEA.BtoA[ii]=signif(z$M.BtoA$RMSEA[1],3)
+   RMSEA.conf[ii]=signif(z$M.conf$RMSEA[1],3)
+   RMSEA.AcollideB[ii]=signif(z$M.AcollideB$RMSEA[1],3)
+   RMSEA.BcollideA[ii]=signif(z$M.BcollideA$RMSEA[1],3)
+
+    s3.nb = z$LEO.NB.AtoB
+    leo.nb.AtoB[ii] = signif(s3.nb,3)
+    s3.nb.BtoA = z$LEO.NB.BtoA
+    leo.nb.BtoA[ii] = signif(s3.nb.BtoA,3)
+    AcollideB.vs.NextBest[ii] = signif(z$LEO.NB.AcollideB,3)
+
+    good.o[ii] = good.i[ii] = good.nb[ii] = " "
+    if (s1.i >= (leo.i.th)) { good.i[ii]="*" }
+    if (s2.o >= (leo.o.th)) { good.o[ii]="*" }
+    if (s3.nb >= (leo.nb.th)) { good.nb[ii]="*" }
+
+  }}}
+
+  leo.nb.AtoB = signif(leo.nb.AtoB,3)
+  leo.nb.BtoA = signif(leo.nb.BtoA,3)
+
+  df=data.frame(rn1,rn2,rn3,rn4,rn5, leo.nb.AtoB, leo.nb.BtoA, leo.i, leo.o, good.o, leo.ab.over.ba, mlogp.M.AtoB,mlogp.M.BtoA,mlogp.M.conf,mlogp.M.AcollideB,mlogp.M.BcollideA, PathAB, SEPathAB, ZPathAB, PPathAB, PathBA, SEPathBA, ZPathBA, PPathBA, BLV.AtoB, BLV.BtoA, AcollideB.vs.NextBest, RMSEA.AtoB, RMSEA.BtoA, RMSEA.conf, RMSEA.AcollideB, RMSEA.BcollideA)
+
+  colnames(df)[1]="model"
+  colnames(df)[2:5]=""
+##  rownames(df) = rn
+  df
+}
+
+#
+# compare.local.sems: return the SEM fitting indices for
+#  a causal, reactive, and confounded model
+#
+# is safe if M.col is a vector too...
+#
+# either supply dataframe x directly....or give both covx and no.obs
+#
+if(exists("compare.local.sems") ) rm(compare.local.sems);
+compare.local.sems=function(M.col,A.col,B.col,x=NULL,covx=NULL,no.obs=NULL,pm) {
+
+   z=list() # return value
+
+   if(is.null(x) && is.null(covx)) {
+      stop("compare.local.sems() called without supply either data matrix x or covariance matrix cov. Aborting.")
+   }
+   if (is.null(x) && is.null(no.obs)) {
+      stop("compare.local.sems() called with covariance matrix but without giving no.obs. Aborting.")
+   }
+
+   # necessary for AhiddenB code below to always work...
+   if(length(A.col) !=1 || length(B.col) != 1) {
+       stop("compare.local.sems called with illegal input: A or B had more or less than 1 variable specified.")
+   }
+
+
+   if (!is.null(x)) {
+     if (is.null(no.obs)) {
+         no.obs=nrow(x);    # allow no.obs to override the nrow(x), if specified.
+     }
+     cn=colnames(x);
+     subx=data.frame(x[,c(M.col,A.col,B.col)])
+     covx=cov(subx);
+
+   } else {
+     cn=colnames(covx);
+   }
+
+   if (is.null(pm$no.obs.Z)) {pm$no.obs.Z = no.obs} # so we get correct zeo2() scores
+
+   dn=cn[c(M.col,A.col,B.col)];
+   nr=length(dn);
+   M.empty=matrix(rep(0,nr*nr),nrow=nr,dimnames=list(dn,dn));
+
+   # adjust indices to point into new matrix
+   M.col=match(cn[M.col],dn)
+   A.col  =match(cn[A.col],dn)
+   B.col  =match(cn[B.col],dn)
+
+   # model 1
+   M.AtoB=M.empty;
+   M.AtoB[M.col,A.col]=1;
+   M.AtoB[A.col,B.col]=1;
+#   attr(M.AtoB,"model")=1;
+
+   # model 2
+   M.BtoA=M.empty;
+   M.BtoA[M.col,B.col]=1;
+   M.BtoA[B.col,A.col]=1;
+#   attr(M.BtoA,"model")=2;
+
+   # model 3
+   M.conf=M.empty;
+   M.conf[M.col,A.col]=1;
+   M.conf[M.col,B.col]=1;
+#   attr(M.conf,"model")=3;
+
+   # model 4
+   M.AcollideB=M.empty;
+   M.AcollideB[M.col,A.col]=1;
+   M.AcollideB[B.col,A.col]=1;
+#   attr(M.AcollideB,"model")=4;
+
+   # model 5
+   M.BcollideA=M.empty;
+   M.BcollideA[M.col,B.col]=1;
+   M.BcollideA[A.col,B.col]=1;
+#   attr(M.BcollideA,"model")=5;
+
+   # model 6
+   M.AhiddenB=M.empty;
+   M.AhiddenB[M.col,A.col]=1;
+#   attr(M.AhiddenB,"model")=6;
+
+   intra.M.list = generate.intra.ma.pairlist(M.col,c(),pm)
+
+   sem.M.conf = make.ram(M.conf, intra.M.list)
+   sem.M.AtoB = make.ram(M.AtoB, intra.M.list)
+   sem.M.BtoA = make.ram(M.BtoA, intra.M.list)
+   sem.M.BcollideA = make.ram(M.BcollideA, intra.M.list)
+   sem.M.AcollideB = make.ram(M.AcollideB, intra.M.list)
+
+   intra.M.list[[ length(intra.M.list)+1]] = c(A.col,B.col)
+   sem.M.AhiddenB = make.ram(M.AhiddenB, intra.M.list)
+
+   fit.M.conf = summary(try.sem(pm,sem.M.conf$the.ram,covx,N=no.obs))
+   fit.M.AtoB = summary(try.sem(pm,sem.M.AtoB$the.ram,covx,N=no.obs))
+   fit.M.BtoA = summary(try.sem(pm,sem.M.BtoA$the.ram,covx,N=no.obs))
+   fit.M.BcollideA = summary(try.sem(pm,sem.M.BcollideA$the.ram,covx,N=no.obs))
+   fit.M.AcollideB = summary(try.sem(pm,sem.M.AcollideB$the.ram,covx,N=no.obs))
+
+   # fit.M.AhiddenB always takes like 37 iterations and returns the same
+   # value as AcollideB anyway, i.e. the models are not identifiable.
+   #   fit.M.AhiddenB = summary(try.sem(pm,sem.M.AhiddenB$the.ram,covx,N=no.obs))
+
+
+
+
+   z$title=paste(sep="","M(",paste(dn[M.col],collapse=","),"),A(",paste(dn[A.col],collapse=","),"),B(",paste(dn[B.col],collapse=","),") local SEM model comparisons to M->A->B.")
+
+   if (!is.null(x)) {
+     # we want to know how much of A the markers explain, and how much of B
+     form1=paste(dn[A.col],"~",paste(collapse=" + ",dn[M.col]))
+     summy1=summary(lm(as.formula(form1),data=subx))
+     z$A.predicted.by.markers.R.squared = summy1$r.squared
+     z$A.predicted.by.markers.Adjusted.R.squared = summy1$adj.r.squared
+     z$A.predicted.by.markers.formula = form1
+
+     form2 = paste(dn[B.col],"~",paste(collapse=" + ",dn[M.col]))
+     summy2=summary(lm(as.formula(form2),data=subx))
+     z$B.predicted.by.markers.R.squared = summy2$r.squared
+     z$B.predicted.by.markers.Adjusted.R.squared = summy2$adj.r.square
+     z$B.predicted.by.markers.formula = form2
+
+     form3 = paste(dn[B.col],"~",dn[A.col])
+     summy3=summary(lm(as.formula(form3),data=subx))
+     z$B.predicted.by.A.gives.R.squared = summy3$r.squared
+     z$B.predicted.by.A.gives.Adjusted.R.squared = summy3$adj.r.squared
+     z$B.predicted.by.A.formula = form3
+   }
+
+   z$M.AtoB=fit.M.AtoB
+   z$M.BtoA=fit.M.BtoA
+   z$M.conf=fit.M.conf
+   z$M.AcollideB=fit.M.AcollideB
+   z$M.BcollideA=fit.M.BcollideA
+
+#   z$M.AhiddenB=fit.M.AhiddenB
+
+   # for confounding checking...
+   if (length(M.col) ==1) {
+      # single marker version
+      z$zeo.M.A.given.B=zeo2detail(M.col,A.col,B.col,covx,pm) # $BLV is the final score
+      z$zeo.M.B.given.A=zeo2detail(M.col,B.col,A.col,covx,pm) # $BLV
+   } else {
+      # average the BLVs for each marker
+      z$zeo.M.A.given.B=multimarker.zeo2detail(M.col,A.col,B.col,covx,pm) # $BLV is the final score
+      z$zeo.M.B.given.A=multimarker.zeo2detail(M.col,B.col,A.col,covx,pm) # $BLV
+   }
+
+   # convert to log10
+   z$mlogp.M.AtoB=-pchisq(fit.M.AtoB$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+   z$mlogp.M.BtoA=-pchisq(fit.M.BtoA$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+   z$mlogp.M.conf=-pchisq(fit.M.conf$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+
+   z$mlogp.M.AcollideB=-pchisq(fit.M.AcollideB$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+   z$mlogp.M.BcollideA=-pchisq(fit.M.BcollideA$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+
+#   z$mlogp.M.AhiddenB=-pchisq(fit.M.AhiddenB$chisq,1,lower.tail=FALSE,log.p=TRUE)*log.to.log10
+
+   z$mlogp.in.model.order=c(z$mlogp.M.AtoB,z$mlogp.M.BtoA,z$mlogp.M.conf,z$mlogp.M.AcollideB,z$mlogp.M.BcollideA) #,z$mlogp.M.AhiddenB)
+   so=sort(z$mlogp.in.model.order,decreasing=FALSE,index.return=TRUE)
+   z$ranked.models=so$ix
+   z$ranked.models.mlogp=so$x
+
+   # so far AcollideB and AhiddenB look the same???
+   # For now, then, we EXCLUDE mlogp.M.AhiddenB from the min() below.
+
+
+   ##
+   ## the new statistics ZPathAB, ZPathBA, z$LEO.NB.BtoA,
+   ## BLV, PearsonCor, PearsonCorP
+   ##
+
+
+   z$PathAB = fit.M.AtoB$coeff[4,1]
+   z$PathBA = fit.M.BtoA$coeff[3,1]
+
+   z$SEPathAB = fit.M.AtoB$coeff[4,2]
+   z$SEPathBA = fit.M.BtoA$coeff[3,2]
+
+   z$ZPathAB = fit.M.AtoB$coeff[4,3]
+   z$ZPathBA = fit.M.BtoA$coeff[3,3]
+
+   z$PPathAB = fit.M.AtoB$coeff[4,4]
+   z$PPathBA = fit.M.BtoA$coeff[3,4]
+
+   # Prior to 4 Feb 2008, the right-hand-sides of these two were swapped.
+   # We now switch them to create consistency with SH implementation of BLV.
+   z$BLV.AtoB = z$zeo.M.B.given.A$BLV
+   z$BLV.BtoA = z$zeo.M.A.given.B$BLV
+
+   # for M->A->B
+   z$alt.model.best.min.mlogp = min(z$mlogp.M.conf,z$mlogp.M.BtoA,z$mlogp.M.BcollideA,z$mlogp.M.AcollideB)
+
+   # for M->A<-B
+   z$next.best.min.rev.mlogp = min(z$mlogp.M.conf,z$mlogp.M.BtoA,z$mlogp.M.AtoB,z$mlogp.M.BcollideA)
+
+   # for M->B->A
+   z$next.best.min.M.BtoA.numerator = min(z$mlogp.M.conf, z$mlogp.M.AtoB, z$mlogp.M.AcollideB, z$mlogp.M.BcollideA)
+
+   z$LEO.NB.AtoB = -(z$mlogp.M.AtoB - z$alt.model.best.min.mlogp)
+
+   z$LEO.NB.AcollideB = -(z$mlogp.M.AcollideB - z$next.best.min.rev.mlogp)
+
+   z$LEO.NB.BtoA = -(z$mlogp.M.BtoA - z$next.best.min.M.BtoA.numerator)
+
+   z$main.model.A.to.B.mlogp=z$mlogp.M.AtoB
+   z$p.conf.over.p.AtoB = pchisq(fit.M.conf$chisq,1,lower.tail=FALSE)/pchisq(fit.M.AtoB$chisq,1,lower.tail=FALSE)
+   z$p.conf.over.p.BtoA = pchisq(fit.M.conf$chisq,1,lower.tail=FALSE)/pchisq(fit.M.BtoA$chisq,1,lower.tail=FALSE)
+
+    # the -log10 space version of p.conf.over.p.AtoB becomes LEO.I.AtoB (I for independent (confounded) model comparison)
+    z$LEO.I.AtoB = z$mlogp.M.conf - z$mlogp.M.AtoB
+    z$LEO.I.BtoA = z$mlogp.M.conf - z$mlogp.M.BtoA
+
+    z$LEO.O.AtoB = z$mlogp.M.AcollideB - z$mlogp.M.AtoB
+    z$LEO.O.BtoA = z$mlogp.M.BcollideA - z$mlogp.M.BtoA
+
+
+   # for symmetry of A->B vs B->A to work...we should compare to M.AcollideB
+   z$eo.losem.lod = -(z$mlogp.M.AtoB - z$mlogp.M.AcollideB);
+
+   z
+}
+
+
+#
+# implement option to add covariances within markers on the m1m2 models
+# (see   pm$add.MA.MB.covar.in.local.sem.four.var.m1m2)
+#
+if(exists("generate.intra.ma.pairlist") ) rm(generate.intra.ma.pairlist);
+generate.intra.ma.pairlist=function(MA.col,MB.col,pm) {
+  list.of.hidden.confounded.pair.indices = NULL
+
+  if (pm$add.MA.MB.covar.in.local.sem.four.var.m1m2 & (length(MA.col) > 1 | length(MB.col) > 1)) {
+    list.of.hidden.confounded.pair.indices = list()
+    list.pos = 1
+    if (length(MA.col) > 1) {
+      for (i in 1:(length(MA.col)-1)) {
+        for (j in (i+1):(length(MA.col))) {
+          list.of.hidden.confounded.pair.indices[[ list.pos ]] = c(MA.col[i],MA.col[j])
+          list.pos = list.pos +1
+        }
+      }
+    }
+
+    if (length(MB.col) > 1) {
+      for (i in 1:(length(MB.col)-1)) {
+        for (j in (i+1):(length(MB.col))) {
+          list.of.hidden.confounded.pair.indices[[ list.pos ]] = c(MB.col[i],MB.col[j])
+          list.pos = list.pos +1
+        }
+      }
+    }
+
+  } # end if (pm$add.MA.MB...
+
+  list.of.hidden.confounded.pair.indices
+} # end generate.intra.ma.pairlist
+
+
+# make.ram: turn a dag matrix into a ram specification for MaxLik model fitting.
+if(exists("make.ram") ) rm(make.ram);
+make.ram=function (m,list.of.hidden.confounded.pair.indices=NULL)
+{
+    cn=colnames(m);
+    nc=length(cn);
+    edgelist=list();
+    my.par=list();
+    my.start=list();
+
+    hidden.count=0;
+    if (!is.null(list.of.hidden.confounded.pair.indices)) {
+       hidden.count=length(list.of.hidden.confounded.pair.indices);
+    }
+
+    # track which variances we have put in the model already
+    var.already.in=vector(length=nc);
+    var.already.in[]=F;
+
+    used.cols=c(); # track the nodes that are used, so we can omit others from the covar matrix and avoid warnings
+    for (j in 1:nc) { for (i in 1:nc) {
+        if (i==j && any(m[,i]!=0, m[i,]!=0) && !var.already.in[i] ) {
+                       edgelist=c(edgelist,paste(cn[i],"<->",cn[i]));
+                       my.par=c(my.par,paste(sep="","var.",cn[i]));
+                       my.start=c(my.start,NA);
+                       var.already.in[i]=TRUE;
+                  } else {
+                       if(m[i,j]==1) { edgelist=c(edgelist,paste(cn[i],"->",cn[j]));
+                                       my.par=c(my.par,paste(sep="","fr.",cn[i],".",cn[j]));
+                                       my.start=c(my.start,NA);
+                                       used.cols=c(i,j,used.cols);
+                                       }}
+    }}
+
+     # manually add in the covariance between A.col and B.col that is due to hidden var
+     if (!is.null(list.of.hidden.confounded.pair.indices)) {
+        pair.count=1;
+        for (pair in list.of.hidden.confounded.pair.indices) {
+             # old way, which was same as M.AhiddenB (model 4 and 6 were not identifiable)
+              # ...is the best way...!
+             edgelist=c(edgelist,paste(cn[pair[1]],"<->",cn[pair[2]]));
+             my.par=c(my.par,paste(sep="","covar.",cn[pair[1]],".",cn[pair[2]]));
+             my.start=c(my.start,NA);
+             used.cols=c(pair[1],pair[2],used.cols);
+
+#              # new way,  works, but same as above
+#              latent = paste(sep="","Lat",pair.count);
+#
+#              edgelist=c(edgelist,paste(latent,"<->",latent));
+#              #my.par=c(my.par,paste(sep="","Var.",latent));
+#              my.par=c(my.par,NA);
+#              my.start=c(my.start,1);
+#
+#              edgelist=c(edgelist,paste(sep="",latent," -> ",cn[pair[1]]));
+#              edgelist=c(edgelist,paste(sep="",latent," -> ",cn[pair[2]]));
+#              my.par=c(my.par,paste(sep="",latent,".",cn[pair[1]]));
+#              my.par=c(my.par,paste(sep="",latent,".",cn[pair[2]]));
+#              #my.par=c(my.par,NA,NA)
+#              my.start=c(my.start,1,1);
+#              used.cols=c(pair[1],pair[2],used.cols);
+
+            if (!var.already.in[pair[1]]) {
+                       edgelist=c(edgelist,paste(cn[pair[1]],"<->",cn[pair[1]]));
+                       my.par=c(my.par,paste(sep="","var.",cn[pair[1]]));
+                       my.start=c(my.start,NA);
+                       var.already.in[pair[1]]=TRUE;
+            }
+
+            if (!var.already.in[pair[2]]) {
+                       edgelist=c(edgelist,paste(cn[pair[2]],"<->",cn[pair[2]]));
+                       my.par=c(my.par,paste(sep="","var.",cn[pair[2]]));
+                       my.start=c(my.start,NA);
+                       var.already.in[pair[2]]=TRUE;
+            }
+             pair.count=pair.count+1;
+        }
+     }
+     # end manual addition of hidden covar between A and B
+
+    suppressWarnings({the.ram <- cbind(paste(edgelist), paste(my.par), as.numeric(paste(my.start)))});
+    # important: NA in my.par indicates a fixed variable
+    if (any(is.na(my.par))){ the.ram[which(is.na(my.par)),2]=NA; } # make real NA, not string "NA"
+    class(the.ram) <- "mod"
+    my.list=list();
+    my.list$the.ram=the.ram
+    my.list$used.cols=unique(used.cols)
+    my.list
+}
+
+
+if(exists("try.sem") ) rm(try.sem);
+try.sem=function(pm,ram,covx,N,ana.grad=TRUE) {
+  a=try(autolog.sem(pm,ram,covx,N,analytic.gradient=ana.grad));
+  if (try.failed(a)) {
+     print(paste("try.sem: sem() call failed with analytic.gradient=",ana.grad));
+     print("trying the other way (reversing analytical.gradient flag). Model(ram):");
+     print(ram);
+     a=try(autolog.sem(pm,ram,covx,N,analytic.gradient=!ana.grad));
+     if (try.failed(a)) {
+        print("sem() call failed both ways...Setting edge orienting scores to NA for ram:");
+        cat(ram);
+        a=NA;
+        class(a)="FailedSEM";
+     } else { cat("\n"); print(paste("try.sem() suceeded with analytical.gradient=",!ana.grad)); }
+  }
+  a
+}
+
+if(exists("try.failed") ) rm(try.failed);
+try.failed=function(x) { inherits(x, "try-error") }
+
+# more details version
+if(exists("zeo2detail") ) rm(zeo2detail);
+zeo2detail=function(gp,gk,pa,covx,pm) {
+   z=list();
+   z$cor = pcor(c(gp,gk,c()),covx)
+   z$pcor = pcor(c(gp,gk,pa),covx)
+   z$Zm1B= sqrt(pm$no.obs.Z-pm$fisher.dof.cor)*   fisher1(abs(pcor(c(gp,gk,c()),covx)))
+   z$Zm1BgivenA= sqrt(pm$no.obs.Z-pm$fisher.dof.pcor1)*   fisher1(abs(pcor(c(gp,gk,pa),covx)))
+   z$BLV = z$Zm1B -z$Zm1BgivenA
+
+   z
+}
+
+# pcor(): partial correlation, copied from ggm so we don't  necessarily need the whole ggm library
+
+#if(exists("pcor") ) rm(pcor);
+pcor=function (u, S)
+{
+    k <- solve(S[u, u])
+    -k[1, 2]/sqrt(k[1, 1] * k[2, 2])
+}
+
+# fisher's transform to take the correlation coefficient into a normal distribution
+if(exists("fisher1") ) rm(fisher1);
+fisher1=function(r) {
+   0.5*log((1+r)/(1-r))
+}
+
+# DFScycle(): use Depth-first-search to
+#        check if a cycle is created by adding edge from i->j # i.e. starting from j can we return then to i?
+#         This function neede in the original FTC algorithm by Cohen et al.
+# PRE: diagonal of dagmat should be 0; no self-loops.
+if(exists("DFScycle") ) rm(DFScycle);
+DFScycle=function(dagmat, i,j) {
+    if (dagmat[j,i]) { return(TRUE); }
+    for(k in which(dagmat[j,] !=0)) {
+        if (DFScycle(dagmat,i,k)) { return(TRUE); }
+    }
+    return(FALSE);
+}
+
+#
+# since the sem() calls sometimes fail, log them, with the data, to reproduce later if we wish.
+# Also log warning model did not converge calls.
+#
+if(exists("autolog.sem") ) rm(autolog.sem);
+autolog.sem=function(pm,ram,covx,N,...) {
+  last.warning=NULL;
+
+  # IMPORTANT CONVERSION to CORRELATION MATRIX from COVARIANCE MATRIX
+  # We were getting singular Hessians with some covariance matrices fed to sem(),
+  # so we will try just feeding the correlation matrix and see if that
+  # improves matters.
+  if (pm$sem.fit.correlation.instead.of.covariance) { covx=covx2cor(covx); }
+
+# PL: wrap the   r=try(sem(ram,covx,N,...)) in a suppressWarnings()
+
+  suppressWarnings({ r=try(sem(ram,covx,N,...)) });
+  if(inherits(r, "try-error") || !is.null(last.warning)) {
+     if(inherits(r, "try-error")) {
+           r$had.error=geterrmessage();
+           if (!exists(".Global.SEM.fail.count")) {
+              .Global.SEM.fail.count <<- 1;
+            } else {
+              .Global.SEM.fail.count <<- .Global.SEM.fail.count + 1;
+            }
+           logfile = paste(sep="",pm$neo.log.file,".badsem.",.Global.SEM.fail.count,".rdat");
+           print(paste("sem() call failed...saving call arguments to file: ",logfile));
+     } else {
+           r$had.warning=last.warning;
+           if (!exists(".Global.SEM.warn.count")) {
+              .Global.SEM.warn.count <<- 1;
+            } else {
+              .Global.SEM.warn.count <<- .Global.SEM.warn.count + 1;
+            }
+           logfile = paste(sep="",pm$neo.log.file,".warnsem.",.Global.SEM.warn.count,".rdat");
+           print(paste("sem() call generated warning...saving call arguments to file: ",logfile));
+     }
+     badsem=list();
+     badsem$pm=pm;
+     badsem$ram=ram;
+     badsem$covx=covx;
+
+     # get human readable correlation and partial correlation matrices.
+     badsem$cor=covx2cor(covx);
+     badsem$pcor=covx2pcor(covx);
+
+     badsem$N=N;
+     badsem$full.call=match.call(expand.dots = FALSE); # document any ... passed arguments.
+     badsem$reproduce="q=sem(ram=badsem$ram,S=badsem$covx,N=badsem$N)";
+     if (!pm$no.log) save(badsem,file=logfile);
+   } # end if try-error
+  r
+}
+
+# convert from covariance matrix to correlation matrix
+#  reduced from ggm::correlations()
+if(exists("covx2cor") ) rm(covx2cor);
+covx2cor=function(covx) {
+   Dg <- 1/sqrt(diag(covx))
+   r <- covx * outer(Dg, Dg)
+   r
+ }
+
+
+ # convert from covariance matrix to partial correlation matrix
+ # use ggm library function
+ if(exists("covx2pcor") ) rm(covx2pcor);
+ covx2pcor=function(covx) {
+       parcor(covx)
+    }
+
+
+    # multiplier to convert natural log to log10
+    log.to.log10 = log10(exp(1));
